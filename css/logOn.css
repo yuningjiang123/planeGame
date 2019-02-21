@@ -1,0 +1,80 @@
+﻿#logOnWindow
+{
+	text-align:center;
+	margin-top:180px;
+	font-family:"微软雅黑";
+}
+#logOnWindow #title
+{
+	color:white;
+	font-size:30px
+}
+#logOnWindow .input
+{
+	font-size:18px;
+	width:330px;
+	height:40px;
+	border-radius:20px;
+	background-color:white;
+    text-align: center;
+	margin-top:10px;
+	padding-top:8px;
+	padding-bottom:8px;
+	margin-left:auto;
+	margin-right:auto
+}
+#logOnWindow input
+{
+	border:none;
+	outline:medium;
+	width:180px;
+	font-size:18px;
+}
+#logOnWindow #register
+{
+	width:90px;
+	color:white;
+	font-size:14px;
+	text-decoration:underline;
+	cursor:pointer;
+	margin-left:auto;
+	margin-right:auto	
+}
+#logOnWindow .ctrl
+{
+	cursor:pointer;
+	font-size:21px;
+	width:160px;
+	height:50px;
+	border-radius:25px;
+	padding-top:10px;
+	padding-bottom:10px;
+	margin-left:auto;
+	margin-right:auto;
+	display:inline-block;
+	transition:all 0.3s
+}
+#logOnWindow #tips
+{
+	color:Maroon;
+	height:5px;
+	font-size:16px;
+	margin-left:auto;
+	margin-right:auto	
+}
+#logOnWindow .ctrl:hover
+{
+	background-color:DarkGreen;
+	box-shadow:0px 0px 10px 3px white;
+}
+.buttonDisable
+{
+	pointer-events:none;
+	background-color:DimGray;
+	color:Gainsboro;
+}
+.buttonEnable
+{
+	color:white;
+	background-color:Chartreuse;
+}

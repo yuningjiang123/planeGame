@@ -1,0 +1,20 @@
+{
+  "name": "feixingqi",
+  "version": "1.0.0",
+  "description": "feixingqi",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "feixingqi"
+  ],
+  "author": "yuningjiang",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.18.3",
+    "express": "^4.16.4",
+    "mongodb": "^3.1.10",
+    "socket.io": "^2.2.0"
+  }
+}

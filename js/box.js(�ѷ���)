@@ -1,0 +1,84 @@
+﻿var pos = [
+    {name: 'vertical-box', x: 8, y: 14, col: 'blue'}
+]
+
+;(function(){ //
+	function createRectBox(name, rate1, rate2){
+		Vue.component(name,{     //矩形box
+			props:['x','y','c'],   //参数分别为本box平移的x、y位置，c为颜色
+			template:`<div :style="{
+						boxSizing: 'border-box',
+						position: 'absolute',
+						width: '${rate1 * 5.882}%',
+						height: '${rate2 * 5.882}%',
+						borderTop: '1px solid black',
+						borderRight: '1px solid black',
+						borderLeft: '1px solid black',
+						backgroundColor: c,
+						display: 'flex',
+						justifyContent: 'center',
+						alignItems: 'center',
+						transform: 'translate(' + x * 100 + '%, ' + y * 100 + '%)'
+					  }">
+						<div :style="{
+						  width: '${rate2 * 35}%',
+						  height: '${rate1 * 35}%',
+						  border: '1px solid black',
+						  borderRadius: '50%',
+						  backgroundColor: 'white'
+						}">
+						</div>
+					  </div>`
+		});
+	}
+	
+	function createTriBox(num, ...ele){
+		Vue.component(`triangle-box${num+1}`,{   //三角box
+			props:['x','y','c'],  //参数分别为本box平移的x、y位置
+			template:`<div :style="{
+						boxSizing: 'border-box',
+						position: 'absolute',
+						width: '11.765%',
+						height: '11.765%',
+						background: 'linear-gradient(${-135 + 90 * num}deg, transparent 50%, black 50%)',
+						transform: 'translate(' + x * 50 + '%, ' + y * 50 + '%)' 
+					  }">
+						<div :style="{
+						  boxSizing: 'border-box',
+						  width: '95%',
+						  height: '95%',
+						  background: 'linear-gradient(${-135 + 90 * num}deg, transparent 50%, ' +' 50%)',
+						  display: 'flex',
+						  justifyContent: 'center',
+						  alignItems: 'center',
+						  transform: 'translate(${ele[0]}%, ${ele[1]}%)'
+						}">
+						  <div :style="{
+							width: '35%',
+							height: '35%',
+							border: '1px solid black',
+							borderRadius: '50%',
+							backgroundColor: 'white',
+							transform: 'translate(${ele[2]}%, ${ele[3]}%)'
+						  }">
+						  </div>
+						</div>
+					  </div>`
+		});
+	}
+    
+	createRectBox('horizontal-box', 2, 1);   //创建水平box
+	createRectBox('vertical-box', 1, 2);     //创建垂直box
+	
+	createTriBox(0, 2, 4, -60, 60);   //创建左下三角box
+	createTriBox(1, 2, 1, -60, -60);   //创建左上三角box
+	createTriBox(2, 4, 2, 60, -60);   //创建右上三角box
+	createTriBox(3, 4, 4, 60, 60);   //创建右下三角box
+	
+	Vue.component('board',{
+		//props:['cdata','item'],
+		template:`<div style="position:relative;width:95%;height:95%;">
+		            <vertical-box x="8" y="14">
+		          </div>`
+	});
+}())

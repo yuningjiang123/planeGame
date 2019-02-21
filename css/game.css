@@ -1,0 +1,89 @@
+﻿.hide
+{
+	display:none
+}
+#myCanvas
+{
+	position:absolute; 
+	top:50%;
+	left:50%;
+	transform:translate(-50%, -50%);
+	/*background-color:rgba(255,255,0,0.7)  /*用于检测canvas范围*/
+}
+#app
+{
+	position:absolute; 
+	top:50%;
+	left:50%;
+	transform:translate(-50%, -50%);
+	width:450px;
+	height:450px;
+}
+.button
+{
+	position:absolute;
+	transition:all 0.2s;
+}
+.fade-enter, .fade-leave-to
+{
+	opacity:0;
+}
+.fade-enter-active, .fade-leave-active 
+{
+    transition: all 0.3s ease
+}
+.window
+{
+	position:absolute;
+	width:300px;
+	height:240px;
+	left:50%;
+	top:50%;
+	transform:translate(-50%,-50%);
+	border-radius:20px;
+	background-color:white;
+	z-index:2;
+	font-family:"微软雅黑";
+	text-align:center;
+	font-size:20px;
+	padding-top:40px;
+}
+.window div
+{
+	cursor:pointer;
+	width:100px;
+	height:50px;
+	border-radius:15px;
+	padding-top:10px;
+	padding-bottom:10px;
+	margin-left:10px;
+	margin-right:10px;
+	display:inline-block;
+	color:white;
+	background-color:Chartreuse;
+	transition:all 0.3s;
+}
+@media only screen and (max-width: 500px){   /*屏幕宽度小于500px时应用的样式*/
+	.button
+	{
+		top:110%;
+		left:50%;
+		transform:translate(-50%, 0);
+	}
+	.button:active
+	{
+		box-shadow:0px 0px 15px 1px black;
+	}
+}
+@media only screen and (min-width: 500px){   /*屏幕宽度大于500px时应用的样式*/
+	.button
+	{
+		top:50%;
+		left:110%;
+		transform:translate(0, -50%);
+	}
+	.button:hover
+	{
+		box-shadow:0px 0px 15px 1px black;
+	}
+}

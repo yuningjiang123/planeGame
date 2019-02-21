@@ -1,0 +1,33 @@
+﻿body
+{
+	margin:0;
+	padding:0;
+	background-color:LightSkyBlue;
+	overflow:hidden
+}
+body *
+{
+	box-sizing:border-box;
+	/*-webkit-user-select:none; /*禁止选择文字*/
+	cursor: default;         /*鼠标悬停时默认不改变图标*/
+}
+@keyframes highLight1{                /*自定义的放大淡出的动画，用于用户头像的放大*/
+	0%{
+		transform:scale(1,1);
+        opacity:1;		
+	}
+	100%{
+		transform:scale(1.3,1.3);
+        opacity:0;
+	}
+}
+@keyframes highLight2{                /*自定义的放大淡出的动画，用于小飞机的放大*/
+	0%{
+		transform:scale(1,1);
+        opacity:1;		
+	}
+	100%{
+		transform:scale(2,2);
+        opacity:0;
+	}
+}

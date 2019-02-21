@@ -1,0 +1,489 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=0.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+<title>飞行棋大战</title>
+<script src="node_modules\socket.io-client\dist\socket.io.js"></script>
+<script src="js\vue.min.js"></script>
+<script src="js\vue-resource.js"></script>   <!--ajax需要用到-->
+<script src="js\component.js"></script>  <!--包含所有组件-->
+<link rel="stylesheet" href="css/public.css">
+<link rel="stylesheet" href="css/logOn.css">
+<link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+<div id="logOnWindow" :class="{hide: hide}">
+  <p id="title">飞行棋游戏{{register?'注册':'登录'}}界面</p>
+  <div class="input">Username:&nbsp;&nbsp;
+    <input :placeholder="register?'...请设置您的用户名':'...请输入用户名'"
+           v-model="uid">
+  </div>
+  <div class="input">Password:&nbsp;&nbsp;
+    <input type="password" :placeholder="register?'...请设置您的密码':'...请输入密码'"
+           v-model="pwd">
+  </div>
+  <div class="input" v-show="register">Password:&nbsp;&nbsp;
+    <input type="password" placeholder="...请再次确认您的密码"
+           v-model="pwd2">
+  </div>
+  <p id="tips">{{tips}}</p>
+  <p id="register" v-show="!register" @click="toRegister">注册新用户</p>
+  
+  <p class="ctrl" v-if="register" @click="addUser" 
+    :class="(uid && pwd && pwd2)?'buttonEnable':'buttonDisable'">申请注册
+  </p>
+  <p class="ctrl" v-else @click="startLogOn"
+    :class="(uid && pwd)?'buttonEnable':'buttonDisable'">登&nbsp;&nbsp;录
+  </p>
+  <p class="ctrl buttonEnable" v-show="register" @click="toLogOn">返回登录</p>
+</div>
+<!-- 
+以下为测试位置代码 
+<plane v-for="(i,n) in loc" v-if="n<52" :c="n%4==1?'red':
+                                            n%4==2?'GoldenRod':
+                                            n%4==3?'Indigo':'ForestGreen'" :l="i"
+										    v-on:click.native="loc[n].n=!loc[n].n ? '2' : ''">
+</plane>
+<plane v-else-if="n>=52&&n<57||n>=72&&n<78" c="ForestGreen" :l="i"></plane>
+<plane v-else-if="n>=57&&n<62||n>=78&&n<84" c="red" :l="i"></plane>
+<plane v-else-if="n>=62&&n<67||n>=84&&n<90" c="GoldenRod" :l="i"></plane>
+<plane v-else-if="n>=67&&n<72||n>=90&&n<96" c="Indigo" :l="i"></plane>
+ -->
+
+<!--canvas好像在Vue挂载实例里面渲染不出来，所以单独列在外面-->
+<canvas id="myCanvas" class="hide"></canvas>
+<script src="js\board.js"></script>
+<!--v-on:click.native  .native父组件监听原生事件-->
+
+<div id="app" :class="{hide: hide}">
+  <player v-for="player in playerArr" :name="player.name" :item="playerLoc[player.planeId-1]" 
+          :ol="player.online" :stat="status" :curr="currPlayer" 
+		  :client="uid" :showbtn="showButn" @throwdice="getPoint">
+  </player>
+		  
+  <plane v-for="(plane, key) in planeArr" :c="planeVal[plane.planeId-1].color"
+         :x="planeLoc[key].x" :y="planeLoc[key].y" 
+		 :a="planeLoc[key].a" :n="planeLoc[key].n" 
+		 :control="planeSelect(plane.planeId)" :clickpermit="plane.ctrlPermit" 
+		 :showhl="showHighLight(plane.planeId)" :win="plane.victory" 
+		 @chooseplane="getPlaneLoc(plane.chessId)">
+  </plane>
+		 
+  <button-diy class="button" v-show="!status" :content="begin" 
+              :control="playerArr.length>1" @click.native="gameStart">
+  </button-diy>
+  
+  <button-diy class="button" v-show="status" content="退出" 
+              :control="true" @click.native="escapeVerify">
+  </button-diy>
+  
+  <dice :num="diceNum" v-show="showDice">
+  </dice>
+  
+  <transition name="fade">
+    <div class="window" v-show="showEscape">
+      <p>确认强制退出吗？</p>
+	  <p>退出后不可再回到同一局游戏。</p>
+	  <div @click="escape">确认</div><div @click="escapeAbort">取消</div>
+	</div>
+  </transition>
+
+  <transition name="fade">
+    <div class="window" v-show="showWin">
+      <p>恭喜{{winner}}获胜！！</p>
+      <div @click="closeWin">关闭</div>
+	</div>
+  </transition>
+</div>
+<script>
+var currSound = new Audio('music/eat1.mp3');
+function playSound(sounds){   //用于播放音效的函数
+	currSound.pause();   //暂停当前音效的播放
+    currSound = sounds.sort(() => 0.5 - Math.random())[0];
+    currSound.load();
+    currSound.play();    //重新load后，重新播放    
+}
+var eatSound = [
+    new Audio('music/eat1.mp3'),
+    new Audio('music/eat2.mp3')
+];
+var flySound = [
+    new Audio('music/fly1.mp3'),
+    new Audio('music/fly2.mp3')
+];
+var logOnSound = [
+    new Audio('music/logOn1.mp3'),
+    new Audio('music/logOn2.mp3')
+];
+var moveSound = [
+    new Audio('music/move.mp3')
+];
+var startSound = [
+    new Audio('music/start.mp3')
+];
+var victorySound = [
+    new Audio('music/victory.mp3')
+];
+var winSound = [
+    new Audio('music/win.mp3')
+];
+var diceSound = [
+    new Audio('music/dice.mp3')
+];
+var failSound = [
+    new Audio('music/fail.mp3')
+];
+
+
+var v1 = new Vue({
+    el:'#logOnWindow',
+	data:{
+	    uid:'',
+		pwd:'',
+		pwd2:'',
+		register:false,
+		tips:'',
+		hide:false   //登录画面是否隐藏
+	},
+	methods:{
+	    toRegister(){
+		    this.tips = '';
+		    this.register = true;
+			this.uid = '';
+			this.pwd = '';
+		},
+		toLogOn(){
+		    this.register = false;
+			this.tips = '';
+			this.uid = '';
+			this.pwd = '';
+			this.pwd2 = '';
+		},
+		addUser(){  //申请注册新用户
+		    this.tips = '';
+		    if(/[ ]/.test(this.uid)){
+			    this.tips = '请不要在用户名中包含空格！';
+				this.uid = '';
+				return
+			}
+		    if(this.pwd != this.pwd2){
+			    this.tips = '两次输入的密码不一致，请重新输入！'
+				this.pwd = '';
+			    this.pwd2 = '';
+				return
+			}
+			this.$http.post('/addUser',
+			                {uid:this.uid, pwd:this.pwd},
+							{emulateJSON:true}
+			).then(result => {
+			    //当处于注册界面时才对tips进行赋值，如果在ajax回调调用之前切换到了登录界面则不赋值
+			    this.register && (this.tips = result.bodyText);
+			}).catch(err => {
+			    console.log(err);
+				this.register && (this.tips = "服务器连接失败或其它错误！");
+			})
+		},
+		startLogOn(){  //尝试登录
+		    this.tips = '';
+            this.$http.post('/logOn',
+			                {uid:this.uid, pwd:this.pwd},
+							{emulateJSON:true}
+			).then(result => {
+			    !this.register && (this.tips = result.bodyText);
+				if(result.bodyText == "用户登录成功！"){
+					playSound(logOnSound);
+				    this.hide = true;
+					v2.hide = false;
+					//canvas元素取消hide类(让其显示)
+					document.getElementById("myCanvas").classList.remove("hide");
+					socket.emit("playerEnter", this.uid);   //把玩家名字传给后端
+					v2.uid = this.uid;
+					this.tips = '';
+				}
+			}).catch(err => {
+			    console.log(err);
+				!this.register && (this.tips = "服务器连接失败或其它错误！");
+			})
+		}
+	}
+});
+
+var v2 = new Vue({
+    el:'#app',
+	mounted(){  //vue实例挂载完成，data.filter成功渲染后触发此钩子函数
+	    var ele = this.$el;
+	    var clientW = window.innerWidth;
+	    var clientH = window.innerHeight;
+		ele.style.width = (clientW > clientH ? clientH - 20 : clientW - 20) + "px";
+        ele.style.height = ele.style.width;
+		//console.log(document.body.clientWidth);
+		//这里，重新调整了vue挂载DOM的大小使其适应屏幕
+		
+		socket.on("connect", function(){
+		    if(v1.hide){    //重连成功时，如果此时处于游戏界面，则重新执行玩家加入游戏的逻辑
+		    	this.escapeAbort();
+		    	this.closeWin();
+		        socket.emit("playerEnter", v1.uid);   //把玩家名字传给后端
+			}
+		}.bind(this));
+		
+		socket.on("ready", function(arg1, arg2, arg3, arg4, arg5){  
+		    //console.log(arg1);
+		    if(arg5){   //如果是刚开始游戏，则播放开始游戏的音效
+		    	playSound(startSound)
+		    }
+		    this.playerArr = arg1;     //玩家数组
+			
+			this.planeArr = arg2;      //飞机数组
+			
+			console.log(this.planeArr);
+			
+			//console.log(this.planeArr);
+			this.updatePlaneLoc();     //刷新飞机位置数组
+			
+			this.status = arg3;        //游戏状态
+			this.currPlayer = arg4;    //当前玩家
+			//console.log(`uid为${this.uid}, currPlayer为${this.currPlayer}`)
+			this.showButn = true;      //允许掷骰子
+			this.showDice = false;     //点击了掷骰子后才允许色子显示
+
+			this.escapeAbort();
+		    this.closeWin();
+		}.bind(this));
+		
+        socket.on("getPointOK", function(arg1, arg2, arg3){		//色子点数、飞机数组及当前玩家planeId
+		    this.showDice = true;
+			this.changeDice(arg1)();      //改变显示色子点数
+			this.planeArr = arg2;
+			if(!(arg2.filter(value => {
+			    return value.ctrlPermit && value.planeId == arg3
+			}).length) && this.uid == this.currPlayer){    //如果当前没有可点击的飞机，由当前操作玩家直接发送
+			    this.permitted = false;
+				setTimeout(function(){
+				    socket.emit("moveOK", arg2, this.diceNum, 2);
+				}, 3000)
+			}
+		}.bind(this));
+		
+		socket.on("getPlaneLocOK", function(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8){  
+		//位置顺序数组、移动棋子id、色子点数、飞机数组、是否有回家棋子、回家棋子移动位置顺序数组、是否发生了飞跃、是否有棋子获胜
+		    this.permitted = false;    //广播让本客户端的飞机不可再点击，防止混乱
+		    this.showDice = false;     //广播客户端隐藏色子
+			
+			this.planeArr = arg4;
+			
+			this.checkPlaneNum();
+			
+			for(let index = 0; index < this.planeArr.length; index++){
+			    if(this.planeArr[index].chessId == arg2){     //找出要移动的棋子
+				    console.log(arg1.length);
+				    if(arg1.length > 1){
+				    	if(arg5){
+				    		if(arg8){
+				    			playSound(victorySound);     //棋子获胜音效
+				    		}else{
+                                playSound(eatSound);         //棋子被吃音效
+				    		}    
+				    	}else if(arg7){
+                            playSound(flySound);             //棋子飞跃音效
+				    	}else{
+				    		playSound(moveSound);
+				    	}
+				    	
+				        for(let i = 0; i < arg1.length - 1; i++){
+						    //console.log(arg1[i], arg1[i + 1]);
+						    this.moveChess(arg1, index, i, arg5, arg6)();      //移动棋子
+							//console.log(this.planeArr[index].location);
+					    }
+					}else{
+						this.moveOK();
+					}
+					break
+				}
+			}
+			//console.log("退出了循环");
+		}.bind(this));
+
+		socket.on("gameover", function(arg1, arg2, arg3, arg4){  //玩家数组、飞机数组、游戏状态、获胜玩家
+            this.playerArr = arg1;
+            this.planeArr = arg2;
+
+            this.updatePlaneLoc();
+
+            this.status = arg3;
+            this.winner = arg4;
+
+            if(this.winner == this.uid){
+                playSound(winSound);
+            }else{
+                playSound(failSound);
+            }
+            this.showWin = true;
+		}.bind(this));
+	},
+	data:{
+	    uid:'',              //本客户端玩家名称
+	    begin:'开始',
+	    loc:loc,             //
+		planeVal:planeVal,   //飞机属性映射数组
+		playerArr:[],   //玩家数组
+		playerLoc:playerLoc,   //玩家头像位置
+		planeArr:[],    //飞机数组
+		planeLoc:planeLoc,    //飞机位置
+		status:false,   //游戏是否进行
+		currPlayer:'',  //当前玩家名字
+		showDice:false, //是否显示色子
+		diceNum:1,      //色子点数
+		hide:true,      //游戏画面是否隐藏
+		showButn:false,  //最终决定是否显示“掷骰子”按钮的变量
+		permitted:false, //最终决定飞机是否允许被点击的变量
+		showEscape:false,//表示强制退出窗口是否显示
+		showWin:false,   //表示获胜者窗口是否显示
+		winner:''        //获胜者
+	},
+	methods:{
+	    gameStart(){ 
+		    socket.emit("gameStart", this.playerArr);
+		},
+		getPoint(){   //触发后端进行掷骰子
+			this.escapeAbort();
+		    this.showButn = false;     //触发后端掷骰子后，前端掷骰子的按钮要隐藏防止二次触发掷骰子
+			var planeId = this.playerArr.filter(value => value.name == this.uid)[0].planeId;    //当前客户端玩家的planeId
+		    socket.emit("getPoint", planeId);
+		},
+		changeDice(val){    //改变色子点数
+		    var count = 0;
+		    playSound(diceSound);
+			var animation = function (){	    
+			    if(count < 20){
+				    this.diceNum = Math.round(Math.random()*6+0.5);
+				    requestAnimationFrame(animation);
+					count += 1;
+				}else{
+				    this.diceNum = val;
+					this.permitted = true;
+				}
+			}.bind(this)
+			return animation
+		},
+		planeSelect(planeId){    //绑定飞机是否允许点击
+		    var player = this.playerArr.filter(value => value.planeId == planeId);
+			if(player.length > 0){
+		        return (this.uid == player[0].name) && (this.uid == this.currPlayer) && this.permitted
+			}else{
+			    return false
+			}
+		},
+		showHighLight(planeId){    //绑定飞机是否显示高亮
+		    var player = this.playerArr.filter(value => value.planeId == planeId);
+			if(player.length > 0){
+		        return this.status && this.currPlayer == player[0].name
+			}else{
+			    return false
+			}
+		},
+		getPlaneLoc(chessId){
+		    this.permitted = false;    //让本客户端的飞机不可再点击，防止混乱
+		    socket.emit("getPlaneLoc", chessId, this.diceNum, this.planeArr);  //发送给后端让后端广播执行棋子移动计算
+		},
+		updatePlaneLoc(){
+			this.planeLoc = [];
+			this.planeArr.forEach(value => {
+			    this.planeLoc.push({x: this.loc[value.location].x,
+				               y: this.loc[value.location].y,
+							   a: this.loc[value.location].a,
+							   s: value.location,            //位置在loc中的索引序号
+							   n: 1});
+			});
+			
+			this.checkPlaneNum();
+		},
+		moveChess(locArr, index, i, goHome, locArrGoHome){  //棋子移动位置数组，需要移动的棋子在planeLoc(即planeArr)中的索引，locArr目前在进行第几步移动
+		    var j = 1;
+			
+			this.planeLoc[index].n = 1;
+			
+            var animation = function(){
+				if(j <= 30){
+					this.planeLoc[index].x += (this.loc[locArr[i+1]].x - this.planeLoc[index].x) * j / 30;
+					this.planeLoc[index].y += (this.loc[locArr[i+1]].y - this.planeLoc[index].y) * j / 30;
+					this.planeLoc[index].a += (this.loc[locArr[i+1]].a - this.planeLoc[index].a) * j / 30;
+					requestAnimationFrame(animation);
+					j += 1;
+					//console.log(`j=${j}`);
+				}else{
+					this.planeLoc[index].x = this.loc[locArr[i+1]].x;
+					this.planeLoc[index].y = this.loc[locArr[i+1]].y;
+					this.planeLoc[index].a = this.loc[locArr[i+1]].a;
+					this.planeLoc[index].s = locArr[i+1];
+					if(i == (locArr.length - 2)){
+					    this.planeArr[index].location = locArr[i+1];
+						if(goHome){
+						    this.goHome(locArrGoHome)();
+						}else{
+						    this.moveOK();
+						}
+					}
+				}
+            }.bind(this)			
+            return animation
+		},
+		goHome(locArrGoHome){
+		    var j = 1;
+			
+            var animation = function(){
+				if(j <= 30){
+				    locArrGoHome.forEach((v, i) => {
+						this.planeLoc[v[0]].x += (this.loc[v[2]].x - this.planeLoc[v[0]].x) * j / 30;
+						this.planeLoc[v[0]].y += (this.loc[v[2]].y - this.planeLoc[v[0]].y) * j / 30;
+						this.planeLoc[v[0]].a += (this.loc[v[2]].a - this.planeLoc[v[0]].a) * j / 30;
+					})
+					requestAnimationFrame(animation);
+					j += 1;
+				}else{
+				    locArrGoHome.forEach((v, i) => {
+					    this.planeArr[v[0]].location = v[2];
+						this.planeLoc[v[0]].x = this.loc[v[2]].x;
+						this.planeLoc[v[0]].y = this.loc[v[2]].y;
+						this.planeLoc[v[0]].a = this.loc[v[2]].a;
+						this.planeLoc[v[0]].s = v[2];
+					})
+					this.checkPlaneNum();
+					this.moveOK();
+				}
+            }.bind(this)			
+            return animation
+		},
+		moveOK(){
+		    if(this.uid == this.currPlayer){
+			    //console.log("发送了moveOK事件");
+			    socket.emit("moveOK", this.planeArr, this.diceNum);  //移动完成，将当前飞机数组传给后端
+			}
+		},
+		checkPlaneNum(){	
+		    this.planeLoc.forEach((value, index) => {
+				this.planeLoc[index].n = (this.planeLoc.filter(v => v.s == value.s)).length;
+			})
+		},
+		escapeVerify(){    //弹出强制退出确认窗口
+		    this.showEscape = true;
+		},
+		escapeAbort(){     //关闭强制退出确认窗口
+		    this.showEscape = false;
+		},
+		escape(){
+		    socket.emit("escape");
+			this.showEscape = false;
+			document.getElementById("myCanvas").classList.add("hide");
+		    this.hide = true;
+			v1.hide = false;
+		},
+		closeWin(){
+            this.showWin = false;
+		}
+	}
+});
+</script>
+</body>
+</html>
